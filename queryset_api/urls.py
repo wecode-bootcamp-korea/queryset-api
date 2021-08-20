@@ -14,9 +14,11 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.urls import path
-from books.views import BooksWithAllMethodView, BooksWithSelectRelatedView, StoresWithAllMethodView, StoresWithPrefetchRelatedView, StoresWithPrefetchObjectView, StoresWithPrefetchNoneObjectView
+from books.views import BooksWithAllMethodView, BooksWithSelectRelatedView, StoresWithAllMethodView, StoresWithPrefetchRelatedView, StoresWithPrefetchObjectView, StoresWithPrefetchNoneObjectView, LazyLoadingCheckView, CachingCheckView
 
 urlpatterns = [
+    path('check-cache', CachingCheckView.as_view()),
+    path('check-lazy-loading', LazyLoadingCheckView.as_view()),
     path('books-with-all-method', BooksWithAllMethodView.as_view()),
     path('books-with-select-related', BooksWithSelectRelatedView.as_view()),
     path('stores-with-all-method', StoresWithAllMethodView.as_view()),
