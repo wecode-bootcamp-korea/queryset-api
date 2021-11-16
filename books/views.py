@@ -12,29 +12,8 @@ from decorators   import query_debugger
 class LazyLoadingCheckView(View):
     @query_debugger
     def get(self, request):
-        # Lazy Loading - queryset1, queryset2, queryset3는 즉시 호출되지 않음.
-        queryset = Publisher.objects.all()
-        queryset2 = queryset.filter(id=20)
-        queryset3 = queryset2.annotate(count=Count('book'))
-        
-        # Lazy Loading시 쿼리는 어디에 저장되어 있는가?
-#        print("queryset.query에 저장된 SQL문 :: ", queryset.query)
-#        print("queryset2.query에 저장된 SQL문 :: ", queryset2.query)
-#        print("queryset3.query에 저장되 SQL문 :: ", queryset3.query)
-#
-        # Queryset Evaluation - 실제로 db를 호출하는 시점 : Slicing, Iteration, repr(), len(), list(), bool() ..       
-        # Example 1. list(queryset3)
-#        list(queryset3)
+        queryset = Publisher.objects.get(id=10)
 
-        # Example 2. Iteration
-#        for i in queryset3:
-#            print(i.name)
-#
-        # Lazy Loading 때문에 발생하는 문제 - 매번 DB에 요청을 보낸다.
-        list(queryset3)
-        queryset3[0]
-        queryset3[0]
-        queryset3[0]
         return JsonResponse({'message' : 'SUCCESS' }, status=200)
 
 
@@ -52,16 +31,16 @@ class CachingCheckView(View):
 
         # queryset이 평가될 때, 값을 QuerySet._result_cache에 저장한다.
         print("before queryset._result_cache :: ", queryset._result_cache)
-        queryset[0]
+#        queryset[0]
         print("after queryset._result_cache :: ", queryset._result_cache)
         list(queryset)
         print("final after queryset._result_cache :: ", queryset._result_cache)
-#
-        queryset[0]
-        queryset[0]
-        queryset[0]
-        list(queryset)
-        
+##
+#        queryset[0]
+#        queryset[0]
+#        queryset[0]
+#        list(queryset)
+#        
         return JsonResponse({'message' : 'SUCCESS' }, status=200)
 
 
@@ -111,7 +90,6 @@ class BooksWithSelectRelatedView(View):
         return JsonResponse({'books_with_all_method' : books }, status=200)
 
 
-
 #############################
 # N + 1 Problems
 #############################
@@ -141,7 +119,7 @@ class StoresWithAllMethodView(View):
 class StoresWithPrefetchRelatedView(View):
     @query_debugger
     def get(self, request):
-        queryset = Store.objects.select_related("price").prefetch_related("books", "dogs")
+        queryset = Store.objects.all().prefetch_related("books")
         print("queryset.query에 저장된 SQL문 :: ", queryset.query)
         print("final after queryset._result_cache :: ", queryset._result_cache)
         print("final after queryset._prefetch_related_lookups :: ", queryset._prefetch_related_lookups)
@@ -152,6 +130,7 @@ class StoresWithPrefetchRelatedView(View):
             stores.append({'id': store.id, 'name': store.name, 'books': books})
 
         print("!!!! result_cache :: ", queryset._result_cache)
+
 #        stores2 = []
 #
 #        for store in queryset:
@@ -190,10 +169,9 @@ class StoresWithPrefetchNoneObjectView(View):
 class StoresWithPrefetchObjectView(View):
     @query_debugger
     def get(self, request):
-        queryset = Store.objects.prefetch_related(
-            Prefetch('books', queryset=Book.objects.all(), to_attr='total_books'),
-            Prefetch('books', queryset=Book.objects.filter(name='Book9991'), to_attr='filtered_books'),
-        )
+        queryset = Store.objects.all().prefetch_related("books")
+        queryset = Store.objects.prefetch_related(Prefetch('books', queryset=Book.objects.all()))
+
         print("queryset.query에 저장된 SQL문 :: ", queryset.query)
         print("final after queryset._result_cache :: ", queryset._result_cache)
         print("final after queryset._prefetch_related_lookups :: ", queryset._prefetch_related_lookups)

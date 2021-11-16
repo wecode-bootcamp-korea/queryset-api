@@ -81,7 +81,7 @@ DATABASES = {
         'NAME': 'queryset_api',
         'USER': 'root',
         'PASSWORD': 'password',
-        'HOST': 'localhost',
+        'HOST': '127.0.0.1',
         'PORT': '3306',
     }
 }
@@ -138,17 +138,11 @@ LOGGING = {
             'class'     : 'logging.StreamHandler',
             'formatter' : 'verbose',
             'level'     : 'DEBUG',
-        },
-        'file': {
-            'level'     : 'DEBUG',
-            'class'     : 'logging.FileHandler',
-            'formatter' : 'verbose',
-            'filename'  : 'debug.log',
-        },
+        }
     },
     'loggers': {
         'django.db.backends': {
-            'handlers' : ['console','file'],
+            'handlers' : ['console'],
             'level'    : 'DEBUG',
             'propagate': False,
         },
