@@ -12,9 +12,32 @@ from decorators   import query_debugger
 class LazyLoadingCheckView(View):
     @query_debugger
     def get(self, request):
-        queryset = Publisher.objects.get(id=10)
+        # Lazy Loading - queryset1, queryset2, queryset3는 즉시 호출되지 않음.
+        queryset = Publisher.objects.all()
+        queryset2 = queryset.exclude(id=2).annotate(count=Count('book'))
+        print("이건 진짜")
 
+        # Lazy Loading시 쿼리는 어디에 저장되어 있는가?
+        print("queryset.query에 저장된 SQL문 :: ", queryset.query)
+        print("queryset2.query에 저장되 SQL문 :: ", queryset2.query)
+
+        # Queryset Evaluation - 실제로 db를 호출하는 시점 : Slicing, Iteration, repr(), len(), list(), bool() ..
+        # Example 1. list(queryset3)
+        #list(queryset)
+
+        # Example 2. Iteration
+#        for i in queryset2:
+#            print(i.name)
+#
+        # Lazy Loading 때문에 발생하는 문제 - 매번 DB에 요청을 보낸다.
+#        list(queryset2)
+        list(queryset2)
+        queryset2[0]
+        queryset2[0]
+        queryset2[0]
+#
         return JsonResponse({'message' : 'SUCCESS' }, status=200)
+
 
 
 #############################
@@ -24,23 +47,32 @@ class CachingCheckView(View):
     @query_debugger
     def get(self, request):
         # queryset1, queryset2, queryset3는 즉시 호출(Eager Loading)되지 않음.
-        queryset = Publisher.objects.filter(id=20).exclude(id=2).annotate(count=Count('book'))
-        
+        queryset = Publisher.objects.all().annotate(count=Count('book'))
+
         # Lazy Loading시 쿼리는 어디에 저장되어 있는가?
         print("queryset.query에 저장된 SQL문 :: ", queryset.query)
+#
+#        # queryset이 평가될 때, Caching되지 않는 경우
+#        print("before queryset._result_cache :: ", queryset._result_cache)
+#        queryset[0]
+#        print("after queryset._result_cache :: ", queryset._result_cache)
+#        queryset[0]
+#        print("after queryset._result_cache :: ", queryset._result_cache)
+#        queryset[0]
+#
 
+        # queryset이 평가될 때, caching 하는 경우        
         # queryset이 평가될 때, 값을 QuerySet._result_cache에 저장한다.
         print("before queryset._result_cache :: ", queryset._result_cache)
-#        queryset[0]
+        for publisher in queryset:
+            a = publisher.id
         print("after queryset._result_cache :: ", queryset._result_cache)
-        list(queryset)
-        print("final after queryset._result_cache :: ", queryset._result_cache)
-##
-#        queryset[0]
-#        queryset[0]
-#        queryset[0]
-#        list(queryset)
-#        
+        
+        queryset[0]
+        queryset[0]
+        queryset[0]
+        queryset[0]
+
         return JsonResponse({'message' : 'SUCCESS' }, status=200)
 
 
@@ -55,15 +87,22 @@ class BooksWithAllMethodView(View):
         books    = []
 
         # QuerySet이 평가(Evaluation)될 때, N + 1 Problems 발생
-        # 모든 book을 조회하는 SQL 1번 실행 
+        # 모든 book을 조회하는 SQL 1번 실행
         # book 하나당 publisher를 매번 조회하는 SQL N번 실행
-        for book in queryset: 
+        for book in queryset:
             books.append({
                 'id': book.id,
                 'name': book.name,
                 'publisher': book.publisher.name # book.publisher에 접근, 캐싱되지 않은 데이터이므로 query 발생
                 }
             )
+
+        """
+        SELECT * FROM books ; 1번
+        SELECT `publishers`.`id`, `publishers`.`name` FROM `publishers` WHERE `publishers`.`id` = 19
+        SELECT `publishers`.`id`, `publishers`.`name` FROM `publishers` WHERE `publishers`.`id` = 20
+        SELECT `publishers`.`id`, `publishers`.`name` FROM `publishers` WHERE `publishers`.`id` = 21
+        """
 
         return JsonResponse({'books_with_all_method' : books }, status=200)
 
@@ -79,7 +118,7 @@ class BooksWithSelectRelatedView(View):
 
         books = []
 
-        for book in queryset: 
+        for book in queryset:
             books.append({
                 'id': book.id,
                 'name': book.name,
@@ -88,6 +127,7 @@ class BooksWithSelectRelatedView(View):
             )
 
         return JsonResponse({'books_with_all_method' : books }, status=200)
+
 
 
 #############################
@@ -100,17 +140,24 @@ class StoresWithAllMethodView(View):
         queryset = Store.objects.all()
         stores   = []
 
-        for store in queryset: 
-            books = [book.name for book in store.books.all()] 
+        for store in queryset:
+            books = [book.name for book in store.books.all()]
             stores.append({
                 'id': store.id,
                 'name': store.name,
                 'books': books
                 }
             )
+        """
+        SELECT * FROM store ; 1번
+        SELECT `publishers`.`id`, `publishers`.`name` FROM `publishers` WHERE `publishers`.`id` = 19
+        SELECT `publishers`.`id`, `publishers`.`name` FROM `publishers` WHERE `publishers`.`id` = 19
+        SELECT `publishers`.`id`, `publishers`.`name` FROM `publishers` WHERE `publishers`.`id` = 19
+        SELECT `publishers`.`id`, `publishers`.`name` FROM `publishers` WHERE `publishers`.`id` = 19
+        SELECT `publishers`.`id`, `publishers`.`name` FROM `publishers` WHERE `publishers`.`id` = 19
+        """
 
         return JsonResponse({'stores_with_all_method' : stores }, status=200)
-
 
 
 ########################################
@@ -119,15 +166,20 @@ class StoresWithAllMethodView(View):
 class StoresWithPrefetchRelatedView(View):
     @query_debugger
     def get(self, request):
-        queryset = Store.objects.all().prefetch_related("books")
+        queryset = Store.objects.all().prefetch_related("books", "tags")
         print("queryset.query에 저장된 SQL문 :: ", queryset.query)
         print("final after queryset._result_cache :: ", queryset._result_cache)
         print("final after queryset._prefetch_related_lookups :: ", queryset._prefetch_related_lookups)
+        ('books', 'tags')
         stores = []
 
         for store in queryset:
             books = [book.name for book in store.books.all()]
-            stores.append({'id': store.id, 'name': store.name, 'books': books})
+            stores.append({
+                'id': store.id,
+                'name': store.name,
+                'books': books
+            })
 
         print("!!!! result_cache :: ", queryset._result_cache)
 
@@ -149,18 +201,7 @@ class StoresWithPrefetchNoneObjectView(View):
         queryset = Store.objects.all().prefetch_related("books")
 
         stores = []
-        for store in queryset:
-            total_books    = [book.name for book in store.books.all()]
-            filtered_books = [book.name for book in store.books.filter(name='Book9991')]
-            stores.append({
-                'id'          : store.id,
-                'name'        : store.name,
-                'total_books' : total_books,
-                'filterd_books' : filtered_books
-            })
-
         return JsonResponse({'stores_with_prefetch_related' : stores }, status=200)
-
 
 
 ##################################################
@@ -169,9 +210,10 @@ class StoresWithPrefetchNoneObjectView(View):
 class StoresWithPrefetchObjectView(View):
     @query_debugger
     def get(self, request):
-        queryset = Store.objects.all().prefetch_related("books")
-        queryset = Store.objects.prefetch_related(Prefetch('books', queryset=Book.objects.all()))
-
+        queryset = Store.objects.prefetch_related(
+            Prefetch('books', queryset=Book.objects.all(), to_attr='total_books'),
+            Prefetch('books', queryset=Book.objects.filter(name='Book9991'), to_attr='filtered_books'),
+        )
         print("queryset.query에 저장된 SQL문 :: ", queryset.query)
         print("final after queryset._result_cache :: ", queryset._result_cache)
         print("final after queryset._prefetch_related_lookups :: ", queryset._prefetch_related_lookups)
@@ -181,7 +223,7 @@ class StoresWithPrefetchObjectView(View):
         for store in queryset:
 #            total_books    = [book.name for book in store.books.all()]
 #            filtered_books = [book.name for book in store.books.filter(name='Book9991')]
-
+#
             total_books    = [book.name for book in store.total_books]
             filtered_books = [book.name for book in store.filtered_books]
             stores.append({
