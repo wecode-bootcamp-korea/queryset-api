@@ -15,15 +15,14 @@ class LazyLoadingCheckView(View):
         # Lazy Loading - queryset1, queryset2, queryset3는 즉시 호출되지 않음.
         queryset = Publisher.objects.all()
         queryset2 = queryset.exclude(id=2).annotate(count=Count('book'))
-        print("이건 진짜")
 
         # Lazy Loading시 쿼리는 어디에 저장되어 있는가?
         print("queryset.query에 저장된 SQL문 :: ", queryset.query)
         print("queryset2.query에 저장되 SQL문 :: ", queryset2.query)
-
+#
         # Queryset Evaluation - 실제로 db를 호출하는 시점 : Slicing, Iteration, repr(), len(), list(), bool() ..
         # Example 1. list(queryset3)
-        #list(queryset)
+#        list(queryset)
 
         # Example 2. Iteration
 #        for i in queryset2:
@@ -46,22 +45,18 @@ class LazyLoadingCheckView(View):
 class CachingCheckView(View):
     @query_debugger
     def get(self, request):
-        # queryset1, queryset2, queryset3는 즉시 호출(Eager Loading)되지 않음.
         queryset = Publisher.objects.all().annotate(count=Count('book'))
 
-        # Lazy Loading시 쿼리는 어디에 저장되어 있는가?
-        print("queryset.query에 저장된 SQL문 :: ", queryset.query)
-#
-#        # queryset이 평가될 때, Caching되지 않는 경우
+
+        # queryset이 평가될 때, data가 caching되지 않는 경우
 #        print("before queryset._result_cache :: ", queryset._result_cache)
 #        queryset[0]
 #        print("after queryset._result_cache :: ", queryset._result_cache)
 #        queryset[0]
 #        print("after queryset._result_cache :: ", queryset._result_cache)
 #        queryset[0]
-#
 
-        # queryset이 평가될 때, caching 하는 경우        
+        # queryset이 평가될 때, data가 caching 되는 경우        
         # queryset이 평가될 때, 값을 QuerySet._result_cache에 저장한다.
         print("before queryset._result_cache :: ", queryset._result_cache)
         for publisher in queryset:
@@ -83,6 +78,8 @@ class BooksWithAllMethodView(View):
     @query_debugger
     def get(self, request):
         print('Book에서 Publisher Instance에 접근하는 경우 <정참조>')
+        # Publisher(One) - Book(Many)
+
         queryset = Book.objects.all()
         books    = []
 
@@ -166,11 +163,11 @@ class StoresWithAllMethodView(View):
 class StoresWithPrefetchRelatedView(View):
     @query_debugger
     def get(self, request):
-        queryset = Store.objects.all().prefetch_related("books", "tags")
+        queryset = Store.objects.all().prefetch_related("books")
         print("queryset.query에 저장된 SQL문 :: ", queryset.query)
         print("final after queryset._result_cache :: ", queryset._result_cache)
         print("final after queryset._prefetch_related_lookups :: ", queryset._prefetch_related_lookups)
-        ('books', 'tags')
+
         stores = []
 
         for store in queryset:
@@ -201,6 +198,17 @@ class StoresWithPrefetchNoneObjectView(View):
         queryset = Store.objects.all().prefetch_related("books")
 
         stores = []
+
+        for store in queryset:
+            total_books    = [book.name for book in store.books.all()]
+            filtered_books = [book.name for book in store.books.filter(name='Book9991')]
+            stores.append({
+                'id'          : store.id,
+                'name'        : store.name,
+                'total_books' : total_books,
+                'filterd_books' : filtered_books
+            })
+
         return JsonResponse({'stores_with_prefetch_related' : stores }, status=200)
 
 
@@ -214,6 +222,7 @@ class StoresWithPrefetchObjectView(View):
             Prefetch('books', queryset=Book.objects.all(), to_attr='total_books'),
             Prefetch('books', queryset=Book.objects.filter(name='Book9991'), to_attr='filtered_books'),
         )
+
         print("queryset.query에 저장된 SQL문 :: ", queryset.query)
         print("final after queryset._result_cache :: ", queryset._result_cache)
         print("final after queryset._prefetch_related_lookups :: ", queryset._prefetch_related_lookups)
@@ -221,9 +230,6 @@ class StoresWithPrefetchObjectView(View):
         stores = []
 
         for store in queryset:
-#            total_books    = [book.name for book in store.books.all()]
-#            filtered_books = [book.name for book in store.books.filter(name='Book9991')]
-#
             total_books    = [book.name for book in store.total_books]
             filtered_books = [book.name for book in store.filtered_books]
             stores.append({
